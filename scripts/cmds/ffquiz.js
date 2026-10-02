@@ -3,7 +3,7 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "ffquiz",
-    aliases: ["ffqz"],
+    aliases: ["ffq"],
     version: "0.0.7",
     author: "Siam Ahmed Saan",
     role: 0,

@@ -52,7 +52,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const currentVersion = require(`${process.cwd()}/package.json`).version;
 
 function centerText(text, length) {
-	const width = process.stdout.columns;
+	const width = process.stdout.columns || 80;
 	const leftPadding = Math.floor((width - (length || text.length)) / 2);
 	const rightPadding = width - leftPadding - (length || text.length);
 	const paddedString = ' '.repeat(leftPadding > 0 ? leftPadding : 0) + text + ' '.repeat(rightPadding > 0 ? rightPadding : 0);
@@ -80,7 +80,7 @@ const titles = [
 		""
 	]
 ];
-const maxWidth = process.stdout.columns;
+const maxWidth = process.stdout.columns || 80;
 const title = maxWidth > 58 ?
 	titles[0] :
 	maxWidth > 36 ?
@@ -120,17 +120,18 @@ centerText(gradient("#9F98E8", "#AFF6CF")(modified), modified.length);
 centerText(gradient("#9F98E8", "#AFF6CF")(srcUrl), srcUrl.length);
 centerText(gradient("#f5af19", "#f12711")(fakeRelease), fakeRelease.length);
 
-let widthConsole = process.stdout.columns;
+let widthConsole = process.stdout.columns || 80;
 if (widthConsole > 50)
 	widthConsole = 50;
 
 function createLine(content, isMaxWidth = false) {
+	const cols = process.stdout.columns || 80;
 	if (!content)
-		return Array(isMaxWidth ? process.stdout.columns : widthConsole).fill("─").join("");
+		return Array(isMaxWidth ? cols : widthConsole).fill("─").join("");
 	else {
 		content = ` ${content.trim()} `;
 		const lengthContent = content.length;
-		const lengthLine = isMaxWidth ? process.stdout.columns - lengthContent : widthConsole - lengthContent;
+		const lengthLine = isMaxWidth ? cols - lengthContent : widthConsole - lengthContent;
 		let left = Math.floor(lengthLine / 2);
 		if (left < 0 || isNaN(left))
 			left = 0;
@@ -489,6 +490,12 @@ async function getAppStateToLogin(loginWithEmail) {
 		else if (err.name === "COOKIE_INVALID")
 			log.err("LOGIN FACEBOOK", getText('login', 'cookieError'));
 
+		// Non-interactive environment (GitHub Actions) check
+		if (!process.stdout.isTTY) {
+			log.err("LOGIN FACEBOOK", "Non-interactive terminal detected. Please provide valid appState/Cookie in account.txt file.");
+			process.exit(1);
+		}
+
 		if (!email || !password) {
 			log.warn("LOGIN FACEBOOK", getText('login', 'cannotFindAccount'));
 			const rl = readline.createInterface({
@@ -598,11 +605,18 @@ function stopListening(keyListen) {
 
 async function startBot(loginWithEmail) {
 	console.log(colors.hex("#f5ab00")(createLine("START LOGGING IN", true)));
-	const currentVersion = require("../../package.json").version;
-	const tooOldVersion = (await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2-Storage/main/tooOldVersions.txt")).data || "0.0.0";
-	if ([-1, 0].includes(compareVersion(currentVersion, tooOldVersion))) {
-		log.err("VERSION", getText('version', 'tooOldVersion', colors.yellowBright('node update')));
-		process.exit();
+
+	// Version check with timeout & error handling so it won't hang GitHub Actions
+	try {
+		const currentVersion = require("../../package.json").version;
+		const res = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2-Storage/main/tooOldVersions.txt", { timeout: 3000 });
+		const tooOldVersion = res.data || "0.0.0";
+		if ([-1, 0].includes(compareVersion(currentVersion, tooOldVersion))) {
+			log.err("VERSION", getText('version', 'tooOldVersion', colors.yellowBright('node update')));
+			process.exit();
+		}
+	} catch (e) {
+		// Version check network error/timeout skipped safely
 	}
 
 	/* { CHECK ORIGIN CODE BYPASSED } */

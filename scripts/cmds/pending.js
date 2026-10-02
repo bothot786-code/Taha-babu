@@ -1,7 +1,7 @@
 module.exports = {
   config: {
     name: "pending",
-    aliases: ["pen","p"],
+    aliases: ["pen","pend"],
     version: "1.0",
     author: "ArYan",
     countDown: 5,

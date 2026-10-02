@@ -2,133 +2,127 @@ const { getPrefix } = global.utils;
 const { commands, aliases } = global.GoatBot;
 
 module.exports = {
-        config: {
-                name: "help",
-                version: "1.7",
-                author: "MahMUD",
-                countDown: 5,
-                role: 0,
-                shortDescription: {
-                        en: "View command usage and list all commands",
-                        bn: "কমান্ড ব্যবহারের নিয়ম এবং তালিকা দেখুন",
-                        vi: "Xem cách sử dụng và danh sách lệnh"
-                },
-                longDescription: {
-                        en: "View command usage and list all commands directly",
-                        bn: "কমান্ড ব্যবহারের নিয়ম এবং তালিকা দেখুন",
-                        vi: "Xem cách sử dụng và danh sách lệnh"
-                },
-                category: "info",
-                guide: {
-                        en: "{pn} [command name]",
-                        bn: "{pn} [কমান্ডের নাম]",
-                        vi: "{pn} [tên lệnh]"
-                },
-                priority: 1,
-        },
+  config: {
+    name: "help",
+    aliases: ["menu", "cmds", "cmdslist"],
+    version: "2.5.1",
+    author: "𝐓𝐀𝐇𝐀 𝐊𝐇𝐀𝐍",
+    countDown: 3,
+    role: 0,
+    description: {
+      en: "Ultra VIP Stylish Help Menu & Command Inspector",
+      ur: "Khoobsurat aur VIP Command Menu System"
+    },
+    category: "system",
+    guide: {
+      en: "{pn} [command ka naam]"
+    },
+    priority: 1
+  },
 
-        onStart: async function ({ message, args, event, threadsData, role }) {
-                const { threadID } = event;
-                const threadData = await threadsData.get(threadID);
-                const prefix = getPrefix(threadID);
-                const langCode = threadData.data.lang || global.GoatBot.config.language || "en";
+  onStart: async function ({ message, args, event, role, api }) {
+    const { threadID, messageID } = event;
+    const prefix = getPrefix(threadID);
 
-                if (args.length === 0) {
-                        const categories = {};
-                        let msg = "";
+    if (api.setMessageReaction) {
+      api.setMessageReaction("⚡", messageID, () => {}, true);
+    }
 
-                        for (const [name, value] of commands) {
-                                if (value.config.role > 0 && role < value.config.role) continue;
-                                
-                                const category = value.config.category || "Uncategorized";
-                                categories[category] = categories[category] || { commands: [] };
-                                if (!categories[category].commands.includes(name)) {
-                                        categories[category].commands.push(name);
-                                }
-                        }
+    // ──────────────────────────────────────────────────
+    // 1. ALL COMMANDS MENU (MAIN INTERFACE)
+    // ──────────────────────────────────────────────────
+    if (args.length === 0) {
+      const categories = {};
 
-                        Object.keys(categories).sort().forEach((category) => {
-                                msg += `\n╭─────⭓ ${category.toUpperCase()}`;
-                                const names = categories[category].commands.sort();
-                                for (let i = 0; i < names.length; i += 3) {
-                                        const cmds = names.slice(i, i + 3).map((item) => `✧${item}`);
-                                        msg += `\n│ ${cmds.join("  ")}`;
-                                }
-                                msg += `\n╰────────────⭓\n`;
-                        });
-
-                        const totalCommands = commands.size;
-                        let helpHint = langCode === "bn" ? `বিস্তারিত দেখতে ${prefix}help <কমান্ড> লিখুন।` : 
-                                       langCode === "vi" ? `Nhập ${prefix}help <lệnh> để xem chi tiết.` : 
-                                       `Type ${prefix}help <cmd> to see details.`;
-
-                        msg += `\n\n⭔ Total Commands: ${totalCommands}\n⭔ ${helpHint}\n`;
-                        msg += `\n╭─✦ ADMIN: MahMUD 彡\n├‣ WHATSAPP\n╰‣ 01836298139`;
-
-                        try {
-                                const hh = await message.reply({ body: msg });
-                                setTimeout(() => message.unsend(hh.messageID), 80000);
-                        } catch (error) {
-                                console.error("Help Error:", error);
-                        }
-
-                } else {
-                        const commandName = args[0].toLowerCase();
-                        const command = commands.get(commandName) || commands.get(aliases.get(commandName));
-
-                        if (!command) {
-                                const notFound = langCode === "bn" ? `❌ | বেবি, "${commandName}" নামে কোনো কমান্ড নেই!` : 
-                                                 langCode === "vi" ? `❌ | Không tìm thấy lệnh "${commandName}".` : 
-                                                 `❌ | Command "${commandName}" not found.`;
-                                return message.reply(notFound);
-                        }
-
-                        const config = command.config;
-                        const roleText = roleTextToString(config.role, langCode);
-
-                        const labels = {
-                                bn: { name: "নাম", alias: "ডাকনাম", info: "তথ্য", desc: "বর্ণনা", author: "লেখক", guide: "নির্দেশনা", usage: "ভার্সন ও পারমিশন", ver: "ভার্সন", role: "অনুমতি", none: "নেই", unknown: "অজানা" },
-                                vi: { name: "Tên", alias: "Tên khác", info: "Thông tin", desc: "Mô tả", author: "Tác giả", guide: "Hướng dẫn", usage: "Phiên bản & Quyền", ver: "Phiên bản", role: "Quyền hạn", none: "Không có", unknown: "Không xác định" },
-                                en: { name: "NAME", alias: "Aliases", info: "INFO", desc: "Description", author: "Author", guide: "Guide", usage: "Details", ver: "Version", role: "Role", none: "None", unknown: "Unknown" }
-                        };
-
-                        const lb = labels[langCode] || labels.en;
-                        const desc = config.description?.[langCode] || config.description?.en || config.longDescription?.[langCode] || config.longDescription?.en || "No description";
-                        const guideBody = config.guide?.[langCode] || config.guide?.en || "";
-                        
-                        const usage = guideBody
-                                .replace(/{pn}/g, prefix + config.name)
-                                .replace(/{p}/g, prefix)
-                                .replace(/{n}/g, config.name);
-
-                        const response = `╭─────────⭓\n` +
-                                         `│ 🎀 ${lb.name}: ${config.name}\n` +
-                                         `│ 📃 ${lb.alias}: ${config.aliases ? config.aliases.join(", ") : lb.none}\n` +
-                                         `├──‣ ${lb.info}\n` +
-                                         `│ 📝 ${lb.desc}: ${desc}\n` +
-                                         `│ 👑 ${lb.author}: ${config.author || lb.unknown}\n` +
-                                         `│ 📚 ${lb.guide}: ${usage || prefix + config.name}\n` +
-                                         `├──‣ ${lb.usage}\n` +
-                                         `│ ⭐ ${lb.ver}: ${config.version || "1.0"}\n` +
-                                         `│ ♻️ ${lb.role}: ${roleText}\n` +
-                                         `╰────────────⭓`;
-
-                        const helpMessage = await message.reply(response);
-                        setTimeout(() => message.unsend(helpMessage.messageID), 80000);
-                }
+      for (const [name, value] of commands) {
+        if (value.config.role > 0 && role < value.config.role) continue;
+        
+        const catName = (value.config.category || "GENERAL").toUpperCase();
+        if (!categories[catName]) categories[catName] = [];
+        if (!categories[catName].includes(name)) {
+          categories[catName].push(name);
         }
+      }
+
+      let menu = `╔═════════════════════════╗\n`;
+      menu += `║    ⚡ 𝗧𝗔𝗛𝗔 𝗕𝗢𝗧 ⚡    ║\n`;
+      menu += `╠═════════════════════════╣\n`;
+      menu += `║ 👑 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥 : 𝐓𝐀𝐇𝐀 𝐊𝐇𝐀𝐍\n`;
+      menu += `║ ⚙️ 𝗙𝗥𝗔𝗠𝗘𝗪𝗢𝗥𝗞 : 𝗚𝗼𝗮𝘁𝗕𝗼𝘁 𝗩𝟮\n`;
+      menu += `║ 📌 𝗣𝗥𝗘𝗙𝗜𝗫     : [ ${prefix} ]\n`;
+      menu += `╚═════════════════════════╝\n\n`;
+
+      // Category Blocks with Aesthetic Grid
+      Object.keys(categories).sort().forEach((cat) => {
+        menu += `┌─[ ❖ 𝗖𝗔𝗧𝗘𝗚𝗢𝗥𝗬: ${cat} ]\n`;
+        const cmdsList = categories[cat].sort();
+        
+        for (let i = 0; i < cmdsList.length; i += 3) {
+          const chunk = cmdsList.slice(i, i + 3).map(c => `✧ ${c}`);
+          menu += `│ ${chunk.join("   ")}\n`;
+        }
+        menu += `└─────────────────────────►\n`;
+      });
+
+      const totalCmds = commands.size;
+      menu += `\n╭─────────────────────────╮\n`;
+      menu += `│ 📊 Total Commands : ${totalCmds}\n`;
+      menu += `│ 💡 Usage : ${prefix}help <command>\n`;
+      menu += `│ 👑 Owner : 𝐓𝐀𝐇𝐀 𝐊𝐇𝐀𝐍\n`;
+      menu += `╰─────────────────────────╯`;
+
+      try {
+        const sentMsg = await message.reply(menu);
+        if (sentMsg?.messageID) {
+          setTimeout(() => message.unsend(sentMsg.messageID), 90000);
+        }
+      } catch (err) {
+        console.error("[Help Menu Error]:", err);
+      }
+    } 
+    // ──────────────────────────────────────────────────
+    // 2. SINGLE COMMAND DETAILS CARD (.help <cmd>)
+    // ──────────────────────────────────────────────────
+    else {
+      const cmdQuery = args[0].toLowerCase();
+      const command = commands.get(cmdQuery) || commands.get(aliases.get(cmdQuery));
+
+      if (!command) {
+        return message.reply(`❌ Aray jani! "${cmdQuery}" naam ki koi command nahi mili.`);
+      }
+
+      const cfg = command.config;
+
+      const getRoleText = (r) => {
+        if (r === 0) return "Sab Users (Public)";
+        if (r === 1) return "Group Admin Only";
+        return "Bot Owner (TAHA KHAN)";
+      };
+
+      let card = `╔════════ COMMAND CARD ════════╗\n`;
+      card += `║ 🎀 𝗡𝗔𝗠𝗘       : ${cfg.name.toUpperCase()}\n`;
+      card += `║ 🔄 𝗔𝗟𝗜𝗔𝗦𝗘𝗦    : ${cfg.aliases && cfg.aliases.length > 0 ? cfg.aliases.join(", ") : "None"}\n`;
+      card += `║ 📂 𝗖𝗔𝗧𝗘𝗚𝗢𝗥𝗬  : ${(cfg.category || "General").toUpperCase()}\n`;
+      card += `║ 🛡️ 𝗣𝗘𝗥𝗠𝗜𝗦𝗦𝗜𝗢𝗡 : ${getRoleText(cfg.role)}\n`;
+      card += `║ ⏱️ 𝗖𝗢𝗢𝗟𝗗𝗢𝗪𝗡  : ${cfg.countDown || 2}s\n`;
+      card += `╠══════════════════════════════╣\n`;
+      card += `║ 📝 𝗗𝗘𝗦𝗖𝗥𝗜𝗣𝗧𝗜𝗢𝗡 :\n`;
+      card += `║ ${cfg.description?.ur || cfg.description?.en || "No description provided."}\n`;
+      card += `╠══════════════════════════════╣\n`;
+      card += `║ 🚀 𝗨𝗦𝗔𝗚𝗘 :\n`;
+      
+      const usageGuide = (cfg.guide?.ur || cfg.guide?.en || `{pn} ${cfg.name}`)
+        .replace(/{pn}/g, prefix + cfg.name)
+        .replace(/{p}/g, prefix);
+
+      card += `║ ${usageGuide}\n`;
+      card += `╚══════════════════════════════╝\n`;
+      card += `👑 𝗢𝗪𝗡𝗘𝗥 & 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥: 𝐓𝐀𝐇𝐀 𝐊𝐇𝐀𝐍`;
+
+      const sentCard = await message.reply(card);
+      if (sentCard?.messageID) {
+        setTimeout(() => message.unsend(sentCard.messageID), 90000);
+      }
+    }
+  }
 };
-
-function roleTextToString(role, lang) {
-        const roles = {
-                bn: ["সব ইউজার", "গ্রুপ অ্যাডমিন", "বোট অ্যাডমিন", "ডেভেলপার (Dev)", "ভিআইপি (VIP)", "NSFW ইউজার"],
-                en: ["All users", "Group Admin", "Bot Admin", "Developer", "VIP User", "NSFW User"],
-                vi: ["Tất cả người dùng", "Quản trị viên nhóm", "Admin bot", "Người phát triển", "Người dùng VIP", "Người dùng NSFW"]
-        };
-
-        const r = roles[lang] || roles.en;
-        if (role >= 0 && role <= 5) {
-                return `${role} (${r[role]})`;
-        }
-        return `${role} (Unknown)`;
-}

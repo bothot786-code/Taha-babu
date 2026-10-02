@@ -30,6 +30,7 @@ async function getName(userID) {
 	}
 }
 
+
 function compareVersion(version1, version2) {
 	const v1 = version1.split(".");
 	const v2 = version2.split(".");
@@ -52,10 +53,12 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const currentVersion = require(`${process.cwd()}/package.json`).version;
 
 function centerText(text, length) {
-	const width = process.stdout.columns || 80;
+	const width = process.stdout.columns;
 	const leftPadding = Math.floor((width - (length || text.length)) / 2);
 	const rightPadding = width - leftPadding - (length || text.length);
+	// Build the padded string using the calculated padding values
 	const paddedString = ' '.repeat(leftPadding > 0 ? leftPadding : 0) + text + ' '.repeat(rightPadding > 0 ? rightPadding : 0);
+	// Print the padded string to the terminal
 	console.log(paddedString);
 }
 
@@ -80,7 +83,7 @@ const titles = [
 		""
 	]
 ];
-const maxWidth = process.stdout.columns || 80;
+const maxWidth = process.stdout.columns;
 const title = maxWidth > 58 ?
 	titles[0] :
 	maxWidth > 36 ?
@@ -120,18 +123,17 @@ centerText(gradient("#9F98E8", "#AFF6CF")(modified), modified.length);
 centerText(gradient("#9F98E8", "#AFF6CF")(srcUrl), srcUrl.length);
 centerText(gradient("#f5af19", "#f12711")(fakeRelease), fakeRelease.length);
 
-let widthConsole = process.stdout.columns || 80;
+let widthConsole = process.stdout.columns;
 if (widthConsole > 50)
 	widthConsole = 50;
 
 function createLine(content, isMaxWidth = false) {
-	const cols = process.stdout.columns || 80;
 	if (!content)
-		return Array(isMaxWidth ? cols : widthConsole).fill("─").join("");
+		return Array(isMaxWidth ? process.stdout.columns : widthConsole).fill("─").join("");
 	else {
 		content = ` ${content.trim()} `;
 		const lengthContent = content.length;
-		const lengthLine = isMaxWidth ? cols - lengthContent : widthConsole - lengthContent;
+		const lengthLine = isMaxWidth ? process.stdout.columns - lengthContent : widthConsole - lengthContent;
 		let left = Math.floor(lengthLine / 2);
 		if (left < 0 || isNaN(left))
 			left = 0;
@@ -160,9 +162,13 @@ async function input(prompt, isPassword = false) {
 
 	if (isPassword)
 		rl.input.on("keypress", function () {
+			// get the number of characters entered so far:
 			const len = rl.line.length;
+			// move cursor back to the beginning of the input:
 			readline.moveCursor(rl.output, -len, 0);
+			// clear everything to the right of the cursor:
 			readline.clearLine(rl.output, 1);
+			// replace the original input with asterisks:
 			for (let i = 0; i < len; i++) {
 				rl.output.write("*");
 			}
@@ -191,6 +197,7 @@ qr.readQrCode = async function (filePath) {
 };
 
 const { dirAccount } = global.client;
+// const { config, configCommands } = global.GoatBot;
 const { facebookAccount } = global.GoatBot.config;
 
 function responseUptimeSuccess(req, res) {
@@ -227,6 +234,7 @@ global.statusAccountBot = 'good';
 let changeFbStateByCode = false;
 let latestChangeContentAccount = fs.statSync(dirAccount).mtimeMs;
 let dashBoardIsRunning = false;
+
 
 async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { } }, facebookAccount) {
 	const { email, password, userAgent, proxy } = facebookAccount;
@@ -278,7 +286,7 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 								.toLowerCase()
 								.replace(/[\u0300-\u036f]/g, "")
 								.replace(/[đ|Đ]/g, (x) => x == "đ" ? "d" : "D")
-								.replace(/\(\vert{}\)|\,/g, "")
+								.replace(/\(|\)|\,/g, "")
 								.replace(/ /g, "")
 						) :
 						code2FATemp;
@@ -346,6 +354,7 @@ function isNetScapeCookie(cookie) {
 	if (typeof cookie !== 'string')
 		return false;
 	return /(.+)\t(1|TRUE|true)\t([\w\/.-]*)\t(1|TRUE|true)\t\d+\t([\w-]+)\t(.+)/i.test(cookie);
+	// match
 }
 
 function netScapeToCookies(cookieData) {
@@ -397,6 +406,7 @@ async function getAppStateToLogin(loginWithEmail) {
 
 	try {
 		const splitAccountText = accountText.replace(/\|/g, '\n').split('\n').map(i => i.trim()).filter(i => i);
+		// is token full permission
 		if (accountText.startsWith('EAAAA')) {
 			try {
 				spin = createOraDots(getText('login', 'loginToken'));
@@ -408,6 +418,7 @@ async function getAppStateToLogin(loginWithEmail) {
 				throw err;
 			}
 		}
+		// is cookie string
 		else {
 			if (accountText.match(/^(?:\s*\w+\s*=\s*[^;]*;?)+/)) {
 				spin = createOraDots(getText('login', 'loginCookieString'));
@@ -427,6 +438,7 @@ async function getAppStateToLogin(loginWithEmail) {
 					})
 					.filter(i => i.key && i.value && i.key != "x-referer");
 			}
+			// is netscape cookie
 			else if (isNetScapeCookie(accountText)) {
 				spin = createOraDots(getText('login', 'loginCookieNetscape'));
 				spin._start();
@@ -436,14 +448,16 @@ async function getAppStateToLogin(loginWithEmail) {
 				(splitAccountText.length == 2 || splitAccountText.length == 3) &&
 				!splitAccountText.slice(0, 2).map(i => i.trim()).some(i => i.includes(' '))
 			) {
-				global.GoatBot.config.facebookAccount.email = splitAccountText[0];
-				global.GoatBot.config.facebookAccount.password = splitAccountText[1];
+				// bug if account.txt is "[]"
+				global.GoatBot.config.facebookAccount.email = splitAccountText[0]; // bug here=> email is "["
+				global.GoatBot.config.facebookAccount.password = splitAccountText[1]; // bug here=> password is "]"
 				if (splitAccountText[2]) {
 					const code2FATemp = splitAccountText[2].replace(/ /g, "");
 					global.GoatBot.config.facebookAccount['2FASecret'] = code2FATemp;
 				}
 				writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
 			}
+			// is json (cookies or appstate)
 			else {
 				try {
 					spin = createOraDots(getText('login', 'loginCookieArray'));
@@ -477,6 +491,11 @@ async function getAppStateToLogin(loginWithEmail) {
 					}))
 					.filter(i => i.key && i.value && i.key != "x-referer");
 			}
+			//if (!await checkLiveCookie(appState.map(i => i.key + "=" + i.value).join("; "), facebookAccount.userAgent)) {
+				//const error = new Error("Cookie is invalid");
+				//error.name = "COOKIE_INVALID";
+				//throw error;
+			//}
 		}
 	}
 	catch (err) {
@@ -506,8 +525,8 @@ async function getAppStateToLogin(loginWithEmail) {
 			await new Promise((resolve) => {
 				const character = '>';
 				function showOptions() {
-					rl.output.write(`\r${options.map((option, index) => index === currentOption ? colors.blueBright(`${character} (${index + 1})${option}`) : `  (${index + 1})${option}`).join('\n')}\u001B`);
-					rl.write('\u001B[?25l');
+					rl.output.write(`\r${options.map((option, index) => index === currentOption ? colors.blueBright(`${character} (${index + 1}) ${option}`) : `  (${index + 1}) ${option}`).join('\n')}\u001B`);
+					rl.write('\u001B[?25l'); // hides cursor
 				}
 				rl.input.on('keypress', (_, key) => {
 					if (key.name === 'up') {
@@ -520,7 +539,7 @@ async function getAppStateToLogin(loginWithEmail) {
 						const number = parseInt(key.name);
 						if (number >= 0 && number <= options.length)
 							currentOption = number - 1;
-						process.stdout.write('\033[1D');
+						process.stdout.write('\033[1D'); // delete the character
 					}
 					else if (key.name === 'enter' || key.name === 'return') {
 						rl.input.removeAllListeners('keypress');
@@ -530,7 +549,7 @@ async function getAppStateToLogin(loginWithEmail) {
 						resolve();
 					}
 					else {
-						process.stdout.write('\033[1D');
+						process.stdout.write('\033[1D'); // delete the character
 					}
 
 					clearLines(options.length);
@@ -539,7 +558,7 @@ async function getAppStateToLogin(loginWithEmail) {
 				showOptions();
 			});
 
-			rl.write('\u001B[?25h\n');
+			rl.write('\u001B[?25h\n'); // show cursor 
 			clearLines(options.length + 1);
 			log.info("LOGIN FACEBOOK", getText('login', 'loginWith', options[currentOption]));
 
@@ -590,6 +609,7 @@ function stopListening(keyListen) {
 	return new Promise((resolve) => {
 		global.GoatBot.fcaApi.stopListening?.(() => {
 			if (callbackListenTime[keyListen]) {
+				// callbackListenTime[keyListen || Object.keys(callbackListenTime).pop()]("Connection closed by user.");
 				callbackListenTime[keyListen] = () => { };
 			}
 			resolve();
@@ -597,24 +617,21 @@ function stopListening(keyListen) {
 	});
 }
 
+// function removeListener(keyListen) {
+// 	keyListen = keyListen || Object.keys(callbackListenTime).pop();
+// 	if (callbackListenTime[keyListen])
+// 		callbackListenTime[keyListen] = () => { };
+// }
+
 async function startBot(loginWithEmail) {
 	console.log(colors.hex("#f5ab00")(createLine("START LOGGING IN", true)));
-	
-	try {
-		const currentVersion = require("../../package.json").version;
-		const res = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2-Storage/main/tooOldVersions.txt", { timeout: 3000 });
-		const tooOldVersion = res.data || "0.0.0";
-		if ([-1, 0].includes(compareVersion(currentVersion, tooOldVersion))) {
-			log.err("VERSION", getText('version', 'tooOldVersion', colors.yellowBright('node update')));
-			process.exit();
-		}
-	} catch (e) {
-		// Version check network timeout bypass
+	const currentVersion = require("../../package.json").version;
+	const tooOldVersion = (await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2-Storage/main/tooOldVersions.txt")).data || "0.0.0";
+	// nếu version cũ hơn
+	if ([-1, 0].includes(compareVersion(currentVersion, tooOldVersion))) {
+		log.err("VERSION", getText('version', 'tooOldVersion', colors.yellowBright('node update')));
+		process.exit();
 	}
+	/* { CHECK ORIGIN CODE } */
 
-	/* { CHECK ORIGIN CODE BYPASSED } */
-	const appState = await getAppStateToLogin(loginWithEmail);
-	return appState;
-}
-
-module.exports = startBot;
+	if (

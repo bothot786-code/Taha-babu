@@ -1,113 +1,103 @@
 const axios = require("axios");
-const fs = require("fs-extra");
+const fs = require("fs");
 const path = require("path");
 
-const baseApiUrl = async () => {
-        const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/exe/main/baseApiUrl.json");
-        return base.data.mahmud;
-};
+async function getApiBase() {
+ try {
+ const GITHUB_RAW = "https://raw.githubusercontent.com/Saim-x69x/sakura/main/ApiUrl.json";
+ const res = await axios.get(GITHUB_RAW);
+ return res.data.saimx69x;
+ } catch (e) {
+ console.error("GitHub raw fetch error:", e.message);
+ return null;
+ }
+}
+
+async function toFont(text, id = 21) {
+ try {
+ const apiBase = await getApiBase();
+ if (!apiBase) return text;
+ const apiUrl = `${apiBase}/api/font?id=${id}&text=${encodeURIComponent(text)}`;
+ const { data } = await axios.get(apiUrl);
+ return data.output || text;
+ } catch (e) {
+ console.error("Font API error:", e.message);
+ return text;
+ }
+}
 
 module.exports = {
-        config: {
-                name: "pair",
-                version: "1.7",
-                author: "MahMUD",
-                countDown: 10,
-                role: 0,
-                description: {
-                        bn: "গ্রুপের মেম্বারদের মধ্যে আপনার পারফেক্ট ম্যাচ খুঁজুন",
-                        en: "Find your perfect match among group members",
-                        vi: "Tìm mảnh ghép hoàn hảo của bạn trong số các thành viên nhóm"
-                },
-                category: "love",
-                guide: {
-                        bn: '   {pn}: আপনার ম্যাচ খুঁজে পেতে ব্যবহার করুন',
-                        en: '   {pn}: Use to find your match',
-                        vi: '   {pn}: Sử dụng để tìm cặp đôi của bạn'
-                }
-        },
+ config: {
+ name: "pair",
+ aliases: ["lovepair", "match"],
+ author: "Siam Ahmed Saan",
+ version: "2.0",
+ role: 0,
+ category: "love",
+ shortDescription: { en: "💘 Generate a love match between you and another group member" },
+ longDescription: { en: "This command calculates a love match based on gender. Shows avatars, background, and love percentage." },
+ guide: { en: "{p}{n} — Use this command in a group to find a love match" }
+ },
 
-        langs: {
-                bn: {
-                        noGender: "× বেবি, আপনার জেন্ডার প্রোফাইলে সেট করা নেই",
-                        noMatch: "× দুঃখিত, এই গ্রুপে আপনার জন্য কোনো ম্যাচ পাওয়া যায়নি",
-                        success: "💞 𝐒𝐮𝐜𝐜𝐞𝐬𝐬𝐟𝐮𝐥 𝐏𝐚𝐢𝐫𝐢𝐧𝐠\n• %1\n• %2\n\n𝐋𝐨𝐯𝐞 𝐏𝐞𝐫𝐜𝐞𝐧𝐭𝐚𝐠𝐞: %3%",
-                        error: "× সমস্যা হয়েছে: %1। প্রয়োজনে Contact MahMUD।\n•WhatsApp: 01836298139"
-                },
-                en: {
-                        noGender: "× Baby, your gender is not defined in your profile",
-                        noMatch: "× Sorry, no match found for you in this group",
-                        success: "💞 𝐒𝐮𝐜𝐜𝐞𝐬𝐬𝐟𝐮𝐥 𝐏𝐚𝐢𝐫𝐢𝐧𝐠\n• %1\n• %2\n\n𝐋𝐨𝐯𝐞 𝐏𝐞𝐫𝐜𝐞𝐧𝐭𝐚𝐠𝐞: %3%",
-                        error: "× API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
-                },
-                vi: {
-                        noGender: "× Cưng ơi, giới tính của cưng không được xác định",
-                        noMatch: "× Rất tiếc, không tìm thấy mảnh ghép nào cho cưng",
-                        success: "💞 𝐆𝐡𝐞́𝐩 đ𝐨̂𝐢 𝐭𝐡𝐚̀𝐧𝐡 𝐜𝐨̂𝐧𝐠\n• %1\n• %2\n\n𝐓𝐲̉ 𝐥𝐞̣̂ 𝐭𝐢̀𝐧𝐡 𝐜𝐚̉𝐦: %3%",
-                        error: "× Lỗi: %1. Liên hệ MahMUD để hỗ trợ.\n•WhatsApp: 01836298139"
-                }
-        },
+ onStart: async function ({ api, event, usersData }) {
+ try {
+ const senderData = await usersData.get(event.senderID);
+ let senderName = senderData.name;
 
-        onStart: async function ({ api, event, message, getLang }) {
-                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
-                if (this.config.author !== authorName) {
-                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
-                }
+ const threadData = await api.getThreadInfo(event.threadID);
+ const users = threadData.userInfo;
 
-                const outputPath = path.join(__dirname, "cache", `pair_${event.senderID}_${Date.now()}.png`);
-                if (!fs.existsSync(path.dirname(outputPath))) fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+ const myData = users.find(user => user.id === event.senderID);
+ if (!myData || !myData.gender) return api.sendMessage("⚠️ Could not determine your gender. Please try again later.", event.threadID, event.messageID);
 
-                try {
-                        api.setMessageReaction("😘", event.messageID, () => {}, true);
+ const myGender = myData.gender.toUpperCase();
+ let matchCandidates = [];
 
-                        const threadData = await api.getThreadInfo(event.threadID);
-                        const users = threadData.userInfo;
-                        const myData = users.find((u) => u.id === event.senderID);
+ if (myGender === "MALE") matchCandidates = users.filter(user => user.gender === "FEMALE" && user.id !== event.senderID);
+ else if (myGender === "FEMALE") matchCandidates = users.filter(user => user.gender === "MALE" && user.id !== event.senderID);
+ else return api.sendMessage("⚠️ Your gender is undefined. Cannot find a match. Please try again later.", event.threadID, event.messageID);
 
-                        if (!myData || !myData.gender) return message.reply(getLang("noGender"));
+ if (matchCandidates.length === 0) return api.sendMessage("❌ No suitable match found in the group. Please try again later.", event.threadID, event.messageID);
 
-                        const myGender = myData.gender.toUpperCase();
-                        let matchCandidates = [];
+ const selectedMatch = matchCandidates[Math.floor(Math.random() * matchCandidates.length)];
+ let matchName = selectedMatch.name;
 
-                        if (myGender === "MALE") {
-                                matchCandidates = users.filter((u) => u.gender === "FEMALE" && u.id !== event.senderID);
-                        } else if (myGender === "FEMALE") {
-                                matchCandidates = users.filter((u) => u.gender === "MALE" && u.id !== event.senderID);
-                        } else {
-                                matchCandidates = users.filter((u) => u.id !== event.senderID);
-                        }
-                        
-                        if (matchCandidates.length === 0) {
-                                api.setMessageReaction("🥺", event.messageID, () => {}, true);
-                                return message.reply(getLang("noMatch"));
-                        }
+ senderName = await toFont(senderName, 21);
+ matchName = await toFont(matchName, 21);
 
-                        const selectedMatch = matchCandidates[Math.floor(Math.random() * matchCandidates.length)];
-                        const apiUrl = await baseApiUrl();
-                        
-                        const { data } = await axios.get(`${apiUrl}/api/pair/mahmud?user1=${event.senderID}&user2=${selectedMatch.id}&style=1`, { 
-                                responseType: "arraybuffer" 
-                        });
+ const avatar1 = `https://graph.facebook.com/${event.senderID}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+ const avatar2 = `https://graph.facebook.com/${selectedMatch.id}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
 
-                        fs.writeFileSync(outputPath, Buffer.from(data));
+ const apiBase = await getApiBase();
+ if (!apiBase) return api.sendMessage("❌ Failed to fetch API base. Please try again later.", event.threadID, event.messageID);
 
-                        const name1 = myData.name || "User";
-                        const name2 = selectedMatch.name || "Partner";
-                        const percentage = Math.floor(Math.random() * 100) + 1;
+ const apiUrl = `${apiBase}/api/pair?avatar1=${encodeURIComponent(avatar1)}&avatar2=${encodeURIComponent(avatar2)}`;
+ const outputPath = path.join(__dirname, "pair_output.png");
 
-                        return message.reply({
-                                body: getLang("success", name1, name2, percentage),
-                                attachment: fs.createReadStream(outputPath)
-                        }, () => {
-                                api.setMessageReaction("✅", event.messageID, () => {}, true);
-                                if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        });
+ const imageRes = await axios.get(apiUrl, { responseType: "arraybuffer" });
+ fs.writeFileSync(outputPath, Buffer.from(imageRes.data, "binary"));
 
-                } catch (err) {
-                        console.error("Pair Error:", err);
-                        api.setMessageReaction("❌", event.messageID, () => {}, true);
-                        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        return message.reply(getLang("error", err.message));
-                }
-        }
+ const lovePercent = Math.floor(Math.random() * 31) + 70;
+
+ const message = `💞 𝗠𝗮𝘁𝗰𝗵𝗺𝗮𝗸𝗶𝗻𝗴 𝗖𝗼𝗺𝗽𝗹𝗲𝘁𝗲 💞
+
+🎀 ${senderName} ✨️
+🎀 ${matchName} ✨️
+
+🕊️ 𝓓𝓮𝓼𝓽𝓲𝓷𝔂 𝓱𝓪𝓼 𝔀𝓻𝓲𝓽𝓽𝓮𝓷 𝔂𝓸𝓾𝓻 𝓷𝓪𝓶𝓮𝓼 𝓽𝓸𝓰𝓮𝓽𝓱𝓮𝓻 🌹 
+𝓜𝓪𝔂 𝔂𝓸𝓾𝓻 𝓫𝓸𝓷𝓭 𝓵𝓪𝓼𝓽 𝓯𝓸𝓻𝓮𝓿𝓮𝓻 ✨️ 
+
+💘 𝙲𝚘𝚖𝚙𝚊𝚝𝚒𝚋𝚒𝚕𝚒𝚝𝚢: ${lovePercent}% 💘`;
+
+ api.sendMessage(
+ { body: message, attachment: fs.createReadStream(outputPath) },
+ event.threadID,
+ () => fs.unlinkSync(outputPath),
+ event.messageID
+ );
+
+ } catch (error) {
+ api.sendMessage("❌ An error occurred while trying to find a match. Please try again later.", event.threadID, event.messageID);
+ }
+ }
 };

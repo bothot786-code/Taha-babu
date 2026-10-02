@@ -1,105 +1,44 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-
-const mahmud = async () => {
-        const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json");
-        return base.data.mahmud;
-};
+const DIG = require("discord-image-generation");
+const fs = require("fs-extra");
 
 module.exports = {
-        config: {
-                name: "buttslap",
-                version: "2.7",
-                author: "MahMUD",
-                countDown: 10,
-                role: 0,
-                description: {
-                        en: "Give someone a buttslap effect",
-                        vi: "Tạo hiệu ứng buttslap cho ai đó"
-                },
-                category: "fun",
-                guide: {
-                        en: '   {pn} <@tag>: Give buttslap effect by tagging'
-                                + '\n   {pn} <uid>: Create effect using UID'
-                                + '\n   (Or use by replying to a message)',
-                        vi: '   {pn} <@tag>: Tạo hiệu ứng buttslap bằng cách gắn thẻ'
-                                + '\n   {pn} <uid>: Tạo hiệu ứng bằng UID'
-                                + '\n   (Hoặc phản hồi tin nhắn)'
-                }
-        },
+  config: {
+    name: "buttslap",
+    version: "1.1",
+    author: "Siam Ahmed Saan",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Buttslap image",
+    longDescription: "Buttslap image",
+    category: "meme",
+    guide: {
+      en: "   {pn} @tag"
+    }
+  },
 
-        langs: {
-                en: {
-                        noTarget: "× Baby, mention, reply, or provide UID of the target.",
-                        success: "Baby, it’s just for fun. Don’t take it seriously.\n• 𝐄𝐟𝐟𝐞𝐜𝐭: 𝐁𝐮𝐭𝐭𝐬𝐥𝐚𝐩\n• 𝐓𝐚𝐫𝐠𝐞𝐭: %1",
-                        error: "API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
-                },
-                vi: {
-                        noTarget: "× Cưng ơi, hãy gắn thẻ, phản hồi hoặc cung cấp UID mục tiêu.",
-                        success: "Baby, it’s just for fun. Don’t take it seriously.\n• 𝐄𝐟𝐟𝐞𝐜𝐭: 𝐁𝐮𝐭𝐭𝐬𝐥𝐚𝐩\n• 𝐓𝐚𝐫𝐠𝐞𝐭: %1",
-                        error: "API error: %1. Contact MahMUD for help.\n•WhatsApp: 01836298139"
-                }
-        },
+  langs: {
+    vi: {
+      noTag: ""
+    },
+    en: {
+      noTag: "You must tag the person you want to slap"
+    }
+  },
 
-        onStart: async function ({ api, event, args, message, getLang }) {
-                const authorName = String.fromCharCode(77, 97, 104, 77, 85, 68);
-                if (this.config.author !== authorName) {
-                        return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
-                }
-
-                const { senderID, mentions, messageReply, messageID } = event;
-                let id2;
-                let targetName = "";
-
-                if (messageReply) {
-                        id2 = messageReply.senderID;
-                } else if (Object.keys(mentions).length > 0) {
-                        id2 = Object.keys(mentions)[0];
-                } else if (args[0] && !isNaN(args[0])) {
-                        id2 = args[0];
-                } else {
-                        id2 = null;
-                }
-
-                if (!id2) return message.reply(getLang("noTarget"));
-
-                try {
-                        const userInfo = await api.getUserInfo(id2);
-                        if (userInfo && userInfo[id2]) {
-                                targetName = userInfo[id2].name || userInfo[id2].firstName || "User";
-                        } else {
-                                targetName = "User";
-                        }
-                } catch (e) {
-                        targetName = "User";
-                }
-
-                api.setMessageReaction("⏳", messageID, () => { }, true);
-
-                const cacheDir = path.join(__dirname, "cache");
-                const filePath = path.join(cacheDir, `buttslap_${id2}.png`);
-
-                try {
-                        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
-
-                        const response = await axios.get(`${await mahmud()}/api/fun?type=buttslap&user=${senderID}&user2=${id2}`, { responseType: "arraybuffer" });
-                        
-                        fs.writeFileSync(filePath, Buffer.from(response.data));
- 
-                        api.setMessageReaction("🪽", messageID, () => { }, true);
-  
-                        return message.reply({
-                                body: getLang("success", targetName),
-                                attachment: fs.createReadStream(filePath)
-                        }, () => {
-                                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                        });
-
-                } catch (err) {
-                        console.error("error:", err);
-                        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-                        return message.reply(getLang("error", err.message));
-                }
-        }
+  onStart: async function ({ event, message, usersData, args, getLang }) {
+    const uid1 = event.senderID;
+    const uid2 = Object.keys(event.mentions)[0];
+    if (!uid2)
+      return message.reply(getLang("noTag"));
+    const avatarURL1 = await usersData.getAvatarUrl(uid1);
+    const avatarURL2 = await usersData.getAvatarUrl(uid2);
+    const img = await new DIG.Spank().getImage(avatarURL1, avatarURL2);
+    const pathSave = `${__dirname}/tmp/${uid1}_${uid2}spank.png`;
+    fs.writeFileSync(pathSave, Buffer.from(img));
+    const content = args.join(' ').replace(Object.keys(event.mentions)[0], "");
+    message.reply({
+      body: `${(content || "hehe boii")}`,
+      attachment: fs.createReadStream(pathSave)
+    }, () => fs.unlinkSync(pathSave));
+  }
 };

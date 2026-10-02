@@ -8,7 +8,7 @@ const mahmud = async () => {
 module.exports = {
         config: {
                 name: "prompt",
-                aliases: ["p"],
+                aliases: ["prom"],
                 version: "3.7",
                 author: "MahMUD",
                 countDown: 10,

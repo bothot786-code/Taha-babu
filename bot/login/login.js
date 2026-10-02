@@ -490,12 +490,6 @@ async function getAppStateToLogin(loginWithEmail) {
 		else if (err.name === "COOKIE_INVALID")
 			log.err("LOGIN FACEBOOK", getText('login', 'cookieError'));
 
-		// Non-interactive environment (GitHub Actions) check
-		if (!process.stdout.isTTY) {
-			log.err("LOGIN FACEBOOK", "Non-interactive terminal detected. Please provide valid appState/Cookie in account.txt file.");
-			process.exit(1);
-		}
-
 		if (!email || !password) {
 			log.warn("LOGIN FACEBOOK", getText('login', 'cannotFindAccount'));
 			const rl = readline.createInterface({
@@ -605,8 +599,7 @@ function stopListening(keyListen) {
 
 async function startBot(loginWithEmail) {
 	console.log(colors.hex("#f5ab00")(createLine("START LOGGING IN", true)));
-
-	// Version check with timeout & error handling so it won't hang GitHub Actions
+	
 	try {
 		const currentVersion = require("../../package.json").version;
 		const res = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2-Storage/main/tooOldVersions.txt", { timeout: 3000 });
@@ -616,7 +609,7 @@ async function startBot(loginWithEmail) {
 			process.exit();
 		}
 	} catch (e) {
-		// Version check network error/timeout skipped safely
+		// Version check network timeout bypass
 	}
 
 	/* { CHECK ORIGIN CODE BYPASSED } */
